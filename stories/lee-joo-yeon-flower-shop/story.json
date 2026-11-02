@@ -1,0 +1,109 @@
+{
+  "scriptVersion": 1,
+  "id": "lee-joo-yeon-flower-shop",
+  "title": "李柱延｜花店今日特供",
+  "description": "2025年9月18日，李柱延的花店营业日。互动分支采用离线关键词判断。",
+  "revision": 1,
+  "phone": {
+    "owner": "你",
+    "date": "2025-09-18",
+    "time": "09:00",
+    "battery": 100,
+    "network": "5G",
+    "passcode": "0115",
+    "wallpaper": "p1"
+  },
+  "installedApps": [
+    "instagram",
+    "kakao",
+    "photos",
+    "contacts"
+  ],
+  "contacts": [
+    {
+      "id": "lee-joo-yeon",
+      "name": "李柱延",
+      "phone": "",
+      "avatar": "p2",
+      "bio": "花店今日特供"
+    }
+  ],
+  "chats": [
+    {
+      "id": "kakao-lee-joo-yeon",
+      "app": "kakao",
+      "title": "李柱延",
+      "participants": [
+        "owner",
+        "lee-joo-yeon"
+      ],
+      "messages": [
+        {
+          "id": "kakao-welcome-1",
+          "body": "今天也欢迎你的光临。",
+          "senderId": "lee-joo-yeon",
+          "time": "09:00",
+          "kind": "text"
+        },
+        {
+          "id": "kakao-positive-1",
+          "body": "我会一直等你的^ω^",
+          "senderId": "lee-joo-yeon",
+          "kind": "text"
+        },
+        {
+          "id": "kakao-negative-1",
+          "body": "下次会让你喜欢的。",
+          "senderId": "lee-joo-yeon",
+          "kind": "text"
+        },
+        {
+          "id": "kakao-unread-1",
+          "body": "很想见到你",
+          "senderId": "lee-joo-yeon",
+          "kind": "text"
+        }
+      ]
+    }
+  ],
+  "content": {
+    "instagram": [
+      {
+        "id": "ig-lee-post-20250918",
+        "title": "李柱延",
+        "body": "营业进行时(>^ω^<)",
+        "sender": "李柱延",
+        "time": "2025-09-18 09:00",
+        "kind": "image",
+        "meta": {
+          "imageRef": "p3",
+          "likesTrigger": "kakao-lee-joo-yeon"
+        }
+      }
+    ],
+    "kakao": [
+      {
+        "id": "kakao-flower-special",
+        "title": "花店今日特供",
+        "body": "花店今日特供",
+        "sender": "李柱延",
+        "time": "2025-09-18 09:00",
+        "kind": "image",
+        "meta": {
+          "imageRef": "p4"
+        }
+      },
+      {
+        "id": "kakao-welcome",
+        "title": "今天也欢迎你的光临。",
+        "body": "今天也欢迎你的光临。",
+        "sender": "李柱延",
+        "time": "2025-09-18 09:00",
+        "kind": "text"
+      }
+    ]
+  },
+  "variables": {},
+  "events": [],
+  "tests": []
+}
