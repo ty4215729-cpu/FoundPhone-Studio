@@ -21,3 +21,13 @@
 媒体仅支持safeMedia允许的内嵌data URL格式。禁止HTML/JS脚本；富文本为安全结构化JSON。作品脚本是公开静态数据，谜题密码不属于安全保密机制。
 
 默认空白模板：stories/blank/story.json。引擎回归样例位于tests/fixtures/story-example，不作为内置作品。自然语言原稿：tests/fixtures/story-example/STORY.md。只改故事数据就能改变手机内容。
+
+连续体验而未设置结局的章节，测试可将 `ending` 设为空字符串，仍通过 `expectUnlocked` 和步骤可达性验证。本章可用 `variables.replyApp="kakao"`、`replyThread` 指定聊天内选项；消息 `meta.autoRead="true"` 在打开会话时触发原有 read 事件。选项由故事节点提供，剩余选项由后续节点重新发出。
+
+KKT 聊天中实际发送非空消息会更新 `ui:kakao:sent:联系人名`，可用同名 variable 事件和已解锁邀请条件触发后续回复。消息 `meta.replyToTyped="true"` 使用此前玩家消息的时间；本地发送记录的第四字段保存当时最后一条作者消息 ID，以维持收到回复前后的显示顺序。旧三字段记录仍可读取。
+
+章节动作 `checkpoint` 的 key 是检查点 ID；`archive` 的 key 是路线记录 ID，value 是显示标签。快照写入玩家 Runtime，不写回作品数据，排除嵌套检查点与历史。恢复检查点由现有播放器中的章节控件调用；只读回看不触发作者事件。`resume` 是加载兼容旧存档后的一次事件。
+
+测试 step 可指定字符串 `value`，仅用于 `event="variable"` 且 target 为 `ui:App:键` 时设置对应 UI 值并派发事件，便于重放指定键盘回复。
+
+通知 `value` 使用「App 显示名：通知正文」指定来源，例如 `KakaoTalk：李柱延：早安`、`Instagram：李柱延发布了新动态`。横幅、锁屏和通知中心共用来源解析；旧存档中未带 App 前缀的通知，可通过当前脚本中相同正文的明确通知来源恢复显示，无需清除进度。通知中心点击后打开对应的已安装 App。

@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 export default defineConfig(({ command }) => ({
   base: "./",
+  server: { allowedHosts: ["terminal.local"] },
   optimizeDeps: { entries: ["index.html"] },
   plugins: [
     localIconPlugin(command),
@@ -21,7 +22,7 @@ export default defineConfig(({ command }) => ({
       workbox: {
         clientsClaim: true,
         globPatterns: ["**/*.{js,css,html,svg,json,txt,png,jpg}"],
-        maximumFileSizeToCacheInBytes: 4000000,
+        maximumFileSizeToCacheInBytes: 16000000,
       },
     }),
   ],

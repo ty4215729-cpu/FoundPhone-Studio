@@ -55,6 +55,8 @@ export const actionSchema = z.object({
     "choice",
     "clue",
     "call",
+    "checkpoint",
+    "archive",
   ]),
   key: z.string(),
   value: z.union([z.string(), z.number(), z.boolean()]),
@@ -156,7 +158,10 @@ export type Runtime = {
   messages: Record<string, Item[]>;
   time: string;
   trace: string[];
+  checkpoints?: Record<string, RuntimeSnapshot>;
+  routeRecords?: Record<string, { label: string; state: RuntimeSnapshot }>;
 };
+export type RuntimeSnapshot = Omit<Runtime, "checkpoints" | "routeRecords">;
 export function initialRuntime(w: Work): Runtime {
   return {
     date: w.phone.date,

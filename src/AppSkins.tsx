@@ -40,6 +40,18 @@ export type SkinProps = {
   virtualTime?: string;
   name: string;
   items: Item[];
+  contacts?: Item[];
+  readIds?: string[];
+  revealedIds?: string[];
+  readOnly?: boolean;
+  recordLabel?: string;
+  routeRecords?: { id: string; label: string }[];
+  recordPosts?: Item[];
+  onRecord?: (id: string) => void;
+  routePrompt?: { label: string };
+  chapterIntro?: string;
+  onReplay?: () => void;
+  onContinue?: () => void;
   creator: boolean;
   onRead: (id: string) => void;
   onItem: (i: Item) => void;
@@ -47,6 +59,8 @@ export type SkinProps = {
   onBack: () => void;
   thread: string;
   onThread: (s: string) => void;
+  choices?: { label: string; target: string }[];
+  onChoose?: (target: string) => void;
 };
 function Avatar({
   name,

@@ -84,6 +84,7 @@ export const storySchema = z
           steps: z.array(
             z.object({
               event: z.string().optional(),
+              value: z.string().optional(),
               target: z.string().default(""),
               advanceMs: z.number().min(0).optional(),
               choose: z.string().optional(),

@@ -628,3 +628,105 @@
   width: 25px;
   height: 25px;
 }
+
+/* Authored story replies remain in the conversation. */
+.mymy-kakao .kkt-story-replies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin: 16px 0 8px;
+}
+.mymy-kakao .kkt-story-replies button {
+  border: 1px solid #c4a941;
+  border-radius: 18px;
+  background: #fff7ce;
+  color: #342e19;
+  padding: 10px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.mymy-kakao .kkt-story-replies button:focus-visible {
+  outline: 2px solid #645000;
+  outline-offset: 3px;
+}
+
+.mymy-kakao .kkt-list-avatar {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: 42px;
+  height: 42px;
+  overflow: visible;
+}
+.mymy-kakao .kkt-unread-badge {
+  position: absolute;
+  top: -5px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 10px;
+  background: #e73535;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  border: 1.5px solid #fff;
+}
+
+/* Chapter controls reuse the existing KKT surface. */
+.mymy-kakao .kkt-chapter-panel {
+  margin: 10px;
+  padding: 12px;
+  background: #fff9dc;
+  border: 1px solid #e5dca7;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #3d3827;
+  flex-shrink: 0;
+  line-height: 1.6;
+}
+.mymy-kakao .kkt-chapter-panel strong,
+.mymy-kakao .kkt-chapter-panel span {
+  display: block;
+}
+.mymy-kakao .kkt-chapter-panel p {
+  margin: 6px 0;
+}
+.mymy-kakao .kkt-chapter-panel button {
+  background: #fee500;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 5px 5px 0 0;
+  color: #292500;
+  font-weight: 600;
+}
+.mymy-kakao .kkt-chapter-panel img {
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.mymy-kakao .kkt-chapter-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* Give image-only chat bubbles their own size before image decode. */
+.mymy-kakao .kzbub.kzimg {
+  width: 176px;
+  min-height: 120px;
+  max-width: 60%;
+}
+.mymy-kakao .kzbub.kzimg img {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 120px;
+  object-fit: contain;
+}

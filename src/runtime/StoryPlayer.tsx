@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Phone } from "../Phone";
 import { validateWork, type Work } from "../schema";
+import { hydrateRuntimeMedia } from "./media";
 import "../styles.css";
 import "./player.css";
 function StoryPlayer() {
@@ -21,7 +22,17 @@ function StoryPlayer() {
         if (!r.ok) throw Error("缺少作品文件，请运行 npm run story:build");
         return r.json();
       })
-      .then((x) => {
+      .then(async (x) => {
+        if (
+          new URLSearchParams(location.search).get("preview") !== "test" &&
+          new URLSearchParams(location.search).get("template") !== "blank"
+        ) {
+          const response = await fetch("./work-media.json", {
+            signal: abort.signal,
+          });
+          if (!response.ok) throw new Error("无法加载作品图片，请刷新后重试");
+          x = hydrateRuntimeMedia(x, await response.json());
+        }
         const w = validateWork(x);
         document.title =
           w.title === "捡手机" ? "捡手机" : w.title + " · 捡手机";

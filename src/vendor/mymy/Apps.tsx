@@ -28,7 +28,9 @@ import {
 import type { SkinProps } from "../../AppSkins";
 import { Avatar, Media } from "../../skins/shared";
 import { useSkinState } from "../../skinState";
-import { makeItem, type Item } from "../../schema";
+import type { Item } from "../../schema";
+import { kakaoMessages } from "./kakaoMessages";
+import { newestPosts, unreadMessages } from "./presentation";
 import "./ui.css";
 import "./adapter.css";
 function grouped(items: Item[]) {
@@ -67,42 +69,77 @@ export function MymyKakao(p: SkinProps) {
     [draft, setDraft] = useState(""),
     [query, setQuery] = useState(""),
     [menu, setMenu] = useState(false);
-  const list = grouped(p.items),
-    messages = [
-      ...p.items.filter((i) => i.title === p.thread),
-      ...sent.flatMap((raw, index) => {
+  const conversations = [
+    ...new Set([
+      ...p.items.map((i) => i.title),
+      ...sent.flatMap((raw) => {
         try {
-          const entry: unknown = JSON.parse(raw);
-          if (
-            !Array.isArray(entry) ||
-            entry.length !== 3 ||
-            !entry.every((v) => typeof v === "string") ||
-            entry[0] !== p.thread
-          )
-            return [];
-          return [
-            makeItem({
-              id: "local-kkt-" + index,
-              title: entry[0],
-              body: entry[1],
-              time: entry[2],
-              sender: p.owner || "机主",
-              outgoing: true,
-              meta: { local: "true" },
-            }),
-          ];
+          const v = JSON.parse(raw);
+          return Array.isArray(v) && typeof v[0] === "string" ? [v[0]] : [];
         } catch {
           return [];
         }
       }),
-    ],
+    ]),
+  ];
+  const allMessages = conversations.flatMap((thread) =>
+    kakaoMessages(p.items, sent, thread, p.owner || "机主"),
+  );
+  const list =
+    tab === "好友" && p.contacts?.length
+      ? p.contacts.map((contact) => ({
+          title: contact.title,
+          items: [contact],
+        }))
+      : grouped(allMessages);
+  const messages = kakaoMessages(p.items, sent, p.thread, p.owner || "机主"),
     scroll = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (p.creator || p.readOnly || !p.thread) return;
+    for (const item of p.items) {
+      if (
+        item.title === p.thread &&
+        !item.outgoing &&
+        !item.read &&
+        !p.readIds?.includes(item.id) &&
+        !item.password
+      ) {
+        p.onRead(item.id);
+      }
+    }
+  }, [p.creator, p.readOnly, p.thread, p.items, p.onRead, p.readIds]);
   useEffect(() => {
     const node = scroll.current;
     if (node) node.scrollTop = node.scrollHeight;
-  }, [p.thread, messages.length]);
+  }, [p.thread, messages.length, p.choices?.length]);
+  const routePanel =
+    !p.readOnly && p.routePrompt ? (
+      <div className="kkt-chapter-panel">
+        <strong>{p.routePrompt.label}路线已体验</strong>
+        <p>可以体验另一条早晨路线，或继续下午的故事。</p>
+        <button
+          onClick={() => {
+            p.onReplay?.();
+            p.onThread("");
+          }}
+        >
+          体验另一条早晨路线
+        </button>
+        <button onClick={() => p.onContinue?.()}>继续下午</button>
+      </div>
+    ) : null;
   return (
     <div className="mymy-ui mymy-kakao" data-mymy="kakao">
+      {p.readOnly && (
+        <div className="kkt-chapter-panel">
+          <strong>回看：{p.recordLabel}</strong>
+          <span>此记录仅供回看</span>
+          <button onClick={() => p.onRecord?.("")}>返回当前剧情</button>
+        </div>
+      )}
+      {p.chapterIntro && (
+        <div className="kkt-chapter-panel">{p.chapterIntro}</div>
+      )}
       {p.thread ? (
         <>
           <header className="kzth">
@@ -114,7 +151,14 @@ export function MymyKakao(p: SkinProps) {
               </button>
             </span>
           </header>
-          <div className="msgs kk" ref={scroll}>
+          <div
+            className="msgs kk"
+            ref={scroll}
+            onLoadCapture={() => {
+              const node = scroll.current;
+              if (node) node.scrollTop = node.scrollHeight;
+            }}
+          >
             {messages.map((m, i) => {
               const run = messageRun(messages, i);
               return (
@@ -145,7 +189,7 @@ export function MymyKakao(p: SkinProps) {
                     className={"kzbub" + (m.media ? " kzimg" : "")}
                     onClick={() => m.meta.local !== "true" && read(p, m)}
                   >
-                    {m.media ? <Media item={m} /> : m.body}
+                    {m.media ? <Media item={m} loading="eager" /> : m.body}
                   </button>
                   {!m.outgoing && run.last && (
                     <span className="kzt">{m.time.slice(-5)}</span>
@@ -154,47 +198,69 @@ export function MymyKakao(p: SkinProps) {
               );
             })}
             {!messages.length && <Blank />}
+            {routePanel}
+            {!!p.choices?.length && (
+              <div
+                className="kkt-story-replies"
+                role="group"
+                aria-label="选择回复"
+              >
+                {p.choices.map((choice) => (
+                  <button
+                    key={choice.target}
+                    onClick={() => p.onChoose?.(choice.target)}
+                  >
+                    {choice.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <form
-            className="kzinp"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (draft.trim()) {
-                setSent([
-                  ...sent,
-                  JSON.stringify([
-                    p.thread,
-                    draft.trim(),
-                    p.virtualTime || "09:41",
-                  ]),
-                ]);
-                setDraft("");
-              }
-            }}
-          >
-            <button
-              type="button"
-              aria-label="添加聊天内容"
-              onClick={() => (p.creator ? p.onAdd() : setMenu(!menu))}
+          {!p.readOnly && (
+            <form
+              className="kzinp"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (draft.trim()) {
+                  setSent([
+                    ...sent,
+                    JSON.stringify([
+                      p.thread,
+                      draft.trim(),
+                      p.virtualTime || "09:41",
+                      p.items.filter((i) => i.title === p.thread).at(-1)?.id ||
+                        "",
+                    ]),
+                  ]);
+                  p.onUi?.("sent:" + p.thread, draft.trim());
+                  setDraft("");
+                }
+              }}
             >
-              <Plus size={21} />
-            </button>
-            <input
-              aria-label="KKT消息"
-              placeholder="输入消息"
-              value={draft}
-              maxLength={2000}
-              onChange={(e) => setDraft(e.target.value)}
-            />
-            <Smile size={22} />
-            <button
-              className={draft.trim() ? "go" : ""}
-              aria-label="发送KKT消息"
-              disabled={!draft.trim()}
-            >
-              ↑
-            </button>
-          </form>
+              <button
+                type="button"
+                aria-label="添加聊天内容"
+                onClick={() => (p.creator ? p.onAdd() : setMenu(!menu))}
+              >
+                <Plus size={21} />
+              </button>
+              <input
+                aria-label="KKT消息"
+                placeholder="输入消息"
+                value={draft}
+                maxLength={2000}
+                onChange={(e) => setDraft(e.target.value)}
+              />
+              <Smile size={22} />
+              <button
+                className={draft.trim() ? "go" : ""}
+                aria-label="发送KKT消息"
+                disabled={!draft.trim()}
+              >
+                ↑
+              </button>
+            </form>
+          )}
           {menu && (
             <div className="mymy-local-menu">
               <strong>{p.thread}</strong>
@@ -207,6 +273,25 @@ export function MymyKakao(p: SkinProps) {
         </>
       ) : (
         <div className="kzkk">
+          {routePanel}
+          {!!p.routeRecords?.length && (
+            <details className="kkt-chapter-panel">
+              <summary>路线回看</summary>
+              {p.routeRecords.map((r) => (
+                <button key={r.id} onClick={() => p.onRecord?.(r.id)}>
+                  {r.label}
+                </button>
+              ))}
+            </details>
+          )}
+          {p.readOnly &&
+            p.recordPosts?.map((post) => (
+              <div key={post.id} className="kkt-chapter-panel">
+                <strong>{post.sender} · INS</strong>
+                <Media item={post} />
+                <p>{post.body}</p>
+              </div>
+            ))}
           <div className="kzhd">
             <header className="kzkh">
               <b className="kzti">
@@ -263,23 +348,44 @@ export function MymyKakao(p: SkinProps) {
               .filter((g) => g.title.includes(query.trim()))
               .map((g) => {
                 const last = g.items.at(-1)!;
+                const unread = p.creator
+                  ? 0
+                  : unreadMessages(
+                      p.items.filter((item) => item.title === g.title),
+                      p.readIds,
+                    );
                 return (
                   <button
                     className="kzkr kzkcr"
                     key={g.title}
                     onClick={() => p.onThread(g.title)}
                   >
-                    <Avatar name={last.sender || g.title} src={last.avatar} />
-                    <span className="kzkn">
-                      <b>{g.title}</b>
-                      <small>{tab === "好友" ? last.sender : last.body}</small>
-                    </span>
-                    <span className="kzkmt">
-                      {last.time.slice(-5)}
-                      {last.meta.unread && (
-                        <i className="kzkbd">{last.meta.unread}</i>
+                    <span className="kkt-list-avatar">
+                      <Avatar
+                        name={g.title}
+                        src={
+                          g.items.find((item) => !item.outgoing && item.avatar)
+                            ?.avatar ||
+                          p.contacts?.find(
+                            (contact) => contact.title === g.title,
+                          )?.avatar ||
+                          last.avatar
+                        }
+                      />
+                      {unread > 0 && (
+                        <span
+                          className="kkt-unread-badge"
+                          aria-label={`${unread}条未读消息`}
+                        >
+                          {unread}
+                        </span>
                       )}
                     </span>
+                    <span className="kzkn">
+                      <b>{g.title}</b>
+                      <small>{last.body}</small>
+                    </span>
+                    <span className="kzkmt">{last.time.slice(-5)}</span>
                   </button>
                 );
               })}
@@ -324,8 +430,9 @@ export function MymyInstagram(p: SkinProps) {
     [story, setStory] = useState(0),
     [draft, setDraft] = useState(""),
     [pop, setPop] = useState("");
-  const posts = p.items.filter(
-      (i) => i.folder !== "私信" && i.meta.story !== "true",
+  const posts = newestPosts(
+      p.items.filter((i) => i.folder !== "私信" && i.meta.story !== "true"),
+      p.revealedIds,
     ),
     stories = p.items.filter((i) => i.meta.story === "true"),
     dms = p.items.filter((i) => i.folder === "私信"),
@@ -367,22 +474,24 @@ export function MymyInstagram(p: SkinProps) {
           <MoreHorizontal />
         </button>
       </header>
-      <div
-        className="carw"
-        onDoubleClick={() => {
-          if (!liked.includes(i.id)) setLiked([...liked, i.id]);
-          setPop(i.id);
-        }}
-      >
-        <Media item={i} />
-        {pop === i.id && (
-          <Heart
-            className="mymy-heart-pop"
-            fill="white"
-            onAnimationEnd={() => setPop("")}
-          />
-        )}
-      </div>
+      {i.meta.textOnly !== "true" && (
+        <div
+          className="carw"
+          onDoubleClick={() => {
+            if (!liked.includes(i.id)) setLiked([...liked, i.id]);
+            setPop(i.id);
+          }}
+        >
+          <Media item={i} />
+          {pop === i.id && (
+            <Heart
+              className="mymy-heart-pop"
+              fill="white"
+              onAnimationEnd={() => setPop("")}
+            />
+          )}
+        </div>
+      )}
       <div className="iga">
         <button
           aria-label={"点赞" + i.title}

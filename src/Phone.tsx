@@ -1,3 +1,4 @@
+import { restoreCheckpoint } from "./story-engine/replay";
 import { StatusGlyph } from "./ios/StatusGlyph";
 import { SocialDetail, socialDetailApps } from "./skins/SocialDetails";
 import { NativeCalculator } from "./ios/Calculator";
@@ -204,7 +205,7 @@ function PhoneRuntime({
       .then((saved) => {
         if (!active) return;
         if (saved && saved.state.revision === work.updatedAt)
-          setOwn(saved.state);
+          setOwn(dispatch(work, saved.state, "resume"));
         else {
           setOwn(dispatch(work, initialRuntime(work), "start"));
           if (saved) setLoadError("作品已更新，已开始新的进度。");
@@ -310,6 +311,9 @@ function PhoneRuntime({
       ),
     });
   if (!ready) return <div className="phone-loading">正在恢复进度…</div>;
+  const wallpaper = work.phone.wallpaper.startsWith("data:image/")
+    ? safeMedia(work.phone.wallpaper)
+    : "";
   return (
     <div
       ref={shell}
@@ -318,7 +322,16 @@ function PhoneRuntime({
     >
       <KeyboardContext.Provider value={setKeyboard}>
         <div
-          className={`phone-screen wallpaper-${work.phone.wallpaper} ${locked ? "is-locked" : ""} ${app ? "in-app" : ""} ${keyboard ? "keyboard-open" : ""}`}
+          className={`phone-screen wallpaper-${wallpaper ? "custom" : work.phone.wallpaper} ${locked ? "is-locked" : ""} ${app ? "in-app" : ""} ${keyboard ? "keyboard-open" : ""}`}
+          style={
+            wallpaper
+              ? {
+                  backgroundImage: `url("${wallpaper}")`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
+              : undefined
+          }
           data-app={app}
           onDragStart={(e) => e.preventDefault()}
           onPointerDown={(e) => {
@@ -384,8 +397,8 @@ function PhoneRuntime({
             }
           }}
         >
-          <div className="wallpaper-orb orb-one" />
-          <div className="wallpaper-orb orb-two" />
+          {!wallpaper && <div className="wallpaper-orb orb-one" />}
+          {!wallpaper && <div className="wallpaper-orb orb-two" />}
           <div className="status-bar">
             <button
               onClick={() =>
@@ -452,7 +465,23 @@ function PhoneRuntime({
                   ]}
                   creator={creator}
                   state={s}
+                  onReplay={() => {
+                    const current = runtimeRef.current;
+                    const other =
+                      current.variables.day2Route === "sunwoo"
+                        ? "juyeon"
+                        : "sunwoo";
+                    update(
+                      restoreCheckpoint(current, "day2-morning", {
+                        day2ReplayOnly: other,
+                      }),
+                    );
+                  }}
+                  onContinue={() => event("continueDay2", "")}
                   onRead={(id) => event("read", id)}
+                  onChoose={(id) =>
+                    update(choose(work, runtimeRef.current, id))
+                  }
                   onEdit={(item) => onEdit?.(app, item)}
                   onAdd={() => onAdd?.(app)}
                   onBack={() => setApp("")}
@@ -555,11 +584,12 @@ function PhoneRuntime({
                     <SystemNotifications
                       notices={s.notifications}
                       apps={work.apps}
-                      onOpen={() => {
+                      nodes={work.nodes}
+                      onOpen={(appId) => {
                         setPanel("");
                         if (locked) beginUnlock();
-                        else if (installedApps.some((a) => a.id === "messages"))
-                          open("messages");
+                        else if (installedApps.some((a) => a.id === appId))
+                          open(appId);
                       }}
                       onDismiss={dismissNotice}
                     />
@@ -577,21 +607,24 @@ function PhoneRuntime({
               )}
             </div>
           )}
-          {!creator && s.choices.length > 0 && !locked && (
-            <div className="story-overlay">
-              <span className="eyebrow">故事来到一个岔路口</span>
-              <h3>你会如何选择？</h3>
-              {s.choices.map((c) => (
-                <button
-                  key={c.target}
-                  onClick={() => update(choose(work, s, c.target))}
-                >
-                  {c.label}
-                  <ArrowUp size={15} />
-                </button>
-              ))}
-            </div>
-          )}
+          {!creator &&
+            s.choices.length > 0 &&
+            !locked &&
+            work.variables.replyApp !== "kakao" && (
+              <div className="story-overlay">
+                <span className="eyebrow">故事来到一个岔路口</span>
+                <h3>你会如何选择？</h3>
+                {s.choices.map((c) => (
+                  <button
+                    key={c.target}
+                    onClick={() => update(choose(work, s, c.target))}
+                  >
+                    {c.label}
+                    <ArrowUp size={15} />
+                  </button>
+                ))}
+              </div>
+            )}
           {!creator && s.endings.length > 0 && !locked && (
             <div className="story-overlay ending">
               <span className="eyebrow">ENDING · {s.endings.length}</span>
@@ -687,12 +720,16 @@ function PhoneRuntime({
               }}
             >
               <AppIcon
-                id={notificationContent(banner, work.apps).appId}
+                id={notificationContent(banner, work.apps, work.nodes).appId}
                 small
               />
               <span>
-                <strong>{notificationContent(banner, work.apps).title}</strong>
-                <span>{notificationContent(banner, work.apps).body}</span>
+                <strong>
+                  {notificationContent(banner, work.apps, work.nodes).title}
+                </strong>
+                <span>
+                  {notificationContent(banner, work.apps, work.nodes).body}
+                </span>
               </span>
             </button>
           )}
@@ -859,8 +896,11 @@ function AppContent({
   name,
   items,
   creator,
-  state,
+  state: liveState,
+  onReplay,
+  onContinue,
   onRead,
+  onChoose,
   onEdit,
   onAdd,
   onBack,
@@ -873,7 +913,10 @@ function AppContent({
   items: Item[];
   creator: boolean;
   state: Runtime;
+  onReplay: () => void;
+  onContinue: () => void;
   onRead: (id: string) => void;
+  onChoose: (id: string) => void;
   onEdit: (item: Item) => void;
   onAdd: () => void;
   onBack: () => void;
@@ -881,6 +924,10 @@ function AppContent({
   onUi?: (key: string, value: UiValue) => void;
   work: Work;
 }) {
+  const [recordId, setRecordId] = useState("");
+  const record = liveState.routeRecords?.[recordId];
+  const state: Runtime = record?.state || liveState;
+  const readOnly = !!record;
   const [detail, setDetail] = useState<Item | null>(null);
   const [thread, setThread] = useState("");
   const [tab, setTab] = useState(app.tabs[0]);
@@ -891,9 +938,15 @@ function AppContent({
   const [likes, setLikes] = useState<string[]>([]);
   const shown = items
     .filter((i) => creator || visible(i, state))
+    .filter((i) => !readOnly || i.time.startsWith(state.date || "2025-09-19"))
     .filter((i) =>
       (i.title + i.body + i.sender).toLowerCase().includes(q.toLowerCase()),
     );
+  if (!creator && app.id === work.variables.replyApp) {
+    shown.sort(
+      (a, b) => state.unlocked.indexOf(a.id) - state.unlocked.indexOf(b.id),
+    );
+  }
   const filtered =
     tab === "收藏"
       ? shown.filter((i) => i.favorite)
@@ -989,17 +1042,99 @@ function AppContent({
               appId={app.id}
               owner={work.phone.owner}
               virtualTime={state.time}
-              ui={state.ui?.[app.id]}
-              onUi={creator ? undefined : onUi}
+              ui={
+                readOnly && app.id === "kakao"
+                  ? {
+                      ...state.ui?.kakao,
+                      mymyKktSent: (
+                        (state.ui?.kakao?.mymyKktSent as string[]) || []
+                      ).filter((raw) => {
+                        try {
+                          const a = JSON.parse(raw);
+                          return shown.some((i) => i.id === a[3]);
+                        } catch {
+                          return false;
+                        }
+                      }),
+                    }
+                  : state.ui?.[app.id]
+              }
+              onUi={creator || readOnly ? undefined : onUi}
+              readOnly={readOnly}
+              recordLabel={record?.label}
+              routeRecords={Object.entries(liveState.routeRecords || {}).map(
+                ([id, r]) => ({ id, label: r.label }),
+              )}
+              onRecord={(id) => {
+                setRecordId(id);
+                setThread("");
+              }}
+              recordPosts={
+                readOnly
+                  ? (work.data.instagram || []).filter(
+                      (i) =>
+                        i.meta.routeRecord === recordId && visible(i, state),
+                    )
+                  : undefined
+              }
+              chapterIntro={
+                !readOnly &&
+                state.variables.day2Route === "" &&
+                state.date === "2025-09-19"
+                  ? state.variables.day2ReplayOnly
+                    ? `现在体验另一条早晨路线。请先给${state.variables.day2ReplayOnly === "sunwoo" ? "金善旴" : "李柱延"}发送消息。已完成的路线可在「路线回看」中查看。`
+                    : "昨夜的梦让你没睡好。起晚了，只来得及先见一个人。先发送消息给谁，就先体验谁的早晨路线。"
+                  : undefined
+              }
+              routePrompt={
+                !readOnly &&
+                state.variables.day2RouteDone &&
+                !state.variables.day2Common &&
+                (!thread ||
+                  thread ===
+                    (state.variables.day2Route === "sunwoo"
+                      ? "金善旴"
+                      : "李柱延"))
+                  ? {
+                      label: String(
+                        state.variables.day2Route === "sunwoo"
+                          ? "金善旴"
+                          : "李柱延",
+                      ),
+                    }
+                  : undefined
+              }
+              onReplay={onReplay}
+              onContinue={onContinue}
               name={name}
               items={shown}
+              contacts={work.data.contacts || []}
+              readIds={state.read}
+              revealedIds={state.unlocked}
               creator={creator}
-              onRead={onRead}
-              onItem={read}
+              onRead={readOnly ? () => {} : onRead}
+              onItem={readOnly ? () => {} : read}
               onAdd={onAdd}
               onBack={onBack}
               thread={thread}
               onThread={setThread}
+              choices={
+                readOnly
+                  ? undefined
+                  : state.variables.inlineChoiceThread === thread &&
+                      app.id === "kakao" &&
+                      !state.variables.brotherAnswerDone
+                    ? state.choices.filter(
+                        (c) => c.target === "d2-brother-fixed",
+                      )
+                    : !creator &&
+                        app.id === work.variables.replyApp &&
+                        thread === work.variables.replyThread &&
+                        !state.variables.dayStarted
+                      ? state.choices
+                      : undefined
+              }
+              onChoose={onChoose}
             />
           </Suspense>
         </div>

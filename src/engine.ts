@@ -1,3 +1,4 @@
+import { runtimeSnapshot } from "./story-engine/replay";
 import type { Action, Condition, Runtime, StoryNode, Work } from "./schema";
 import { makeItem } from "./schema";
 export function testCondition(c: Condition, s: Runtime): boolean {
@@ -31,6 +32,15 @@ export function testCondition(c: Condition, s: Runtime): boolean {
 }
 function apply(a: Action, s: Runtime, w: Work) {
   switch (a.type) {
+    case "checkpoint":
+      s.checkpoints = { ...s.checkpoints, [a.key]: runtimeSnapshot(s) };
+      break;
+    case "archive":
+      s.routeRecords = {
+        ...s.routeRecords,
+        [a.key]: { label: String(a.value), state: runtimeSnapshot(s) },
+      };
+      break;
     case "date":
       if (/^\d{4}-\d{2}-\d{2}$/.test(String(a.value))) s.date = String(a.value);
       break;

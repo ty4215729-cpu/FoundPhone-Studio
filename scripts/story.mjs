@@ -102,7 +102,18 @@ try {
     );
   } else if (mode === "build") {
     await mkdir("public", { recursive: true });
-    await writeFile("public/work.json", JSON.stringify(work, null, 2) + "\n");
+    const { compactRuntimeMedia } = await server.ssrLoadModule(
+      "/src/runtime/media.ts",
+    );
+    const compact = compactRuntimeMedia(work);
+    await writeFile(
+      "public/work.json",
+      JSON.stringify(compact.work, null, 2) + "\n",
+    );
+    await writeFile(
+      "public/work-media.json",
+      JSON.stringify(compact.media) + "\n",
+    );
     const blank = compileStory(
       JSON.parse(await readFile("stories/blank/story.json", "utf8")),
     ).work;
